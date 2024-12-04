@@ -1,0 +1,30 @@
+services:
+  db:
+    image: postgres
+    environment:
+      - POSTGRES_USER=designotron
+      - POSTGRES_PASSWORD=designotron
+      - POSTGRES_DB=designotron
+    container_name: designotron-postgres
+    volumes:
+      - db:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: designotron-api
+    environment:
+      - PORT=3000
+    ports:
+      - '3000:3000'
+    depends_on:
+      - db
+    volumes:
+      - ./:/app
+
+volumes:
+  db:
+    driver: local

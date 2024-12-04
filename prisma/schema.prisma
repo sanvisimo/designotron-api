@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model User {
+  id        Int                @id @default(autoincrement())
+  name      String             @default("")
+  email     String             @unique
+  username  String
+  password  String
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  Customers CustomersOnUsers[]
+}
+
+model Customer {
+  id        Int                @id @default(autoincrement())
+  name      String             @unique
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  Users     CustomersOnUsers[]
+  Template  Template[]
+}
+
+model CustomersOnUsers {
+  user       User     @relation(fields: [userId], references: [id])
+  userId     Int // relation scalar field (used in the `@relation` attribute above)
+  customer   Customer @relation(fields: [customerId], references: [id])
+  customerId Int // relation scalar field (used in the `@relation` attribute above)
+  assignedAt DateTime @default(now())
+
+  @@id([userId, customerId])
+}
+
+model Template {
+  id         Int      @id @default(autoincrement())
+  name       String
+  path       String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  customerId Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model TemplateOnCustomer {
+  id Int @id @default(autoincrement())
+}
