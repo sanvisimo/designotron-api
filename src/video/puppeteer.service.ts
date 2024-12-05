@@ -153,7 +153,12 @@ ${inject.body || ''}
 
     await page.setContent(html);
 
+    console.log('leggo');
+
     await page.waitForSelector('.ready');
+
+    console.log('pronta');
+
     const duration = await page.evaluate(() => duration);
     const numFrames = await page.evaluate(() => numFrames);
     console.log('numFrames', numFrames);
@@ -278,6 +283,9 @@ ${inject.body || ''}
           (frame) => animation.goToAndStop(frame, true),
           frame,
         );
+
+        console.log('leggo');
+
         const screenshot = await rootHandle.screenshot({
           omitBackground: true,
           type: 'png',
