@@ -35,7 +35,7 @@ export class PuppeteerService {
     const start = new Date().getTime();
     console.log('inizio');
 
-    const browser = puppeteer.launch({
+    const browser = await puppeteer.launch({
       args: ['--no-sandbox'],
       ...puppeteerOptions,
     });
