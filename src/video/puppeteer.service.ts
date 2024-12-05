@@ -7,7 +7,7 @@ import { spawn } from 'child_process';
 export class PuppeteerService {
   async exportVideo(opts) {
     const {
-      output = '/app/puppeteer/videoPupp.mp4',
+      output = '/tmp/puppeteer/videoPupp.mp4',
       type = 'png',
       animationData,
       path: animationPath = undefined,
@@ -170,7 +170,7 @@ ${inject.body || ''}
       );
 
       const name = `test_${frameNumber}.png`;
-      const tmpFile = `/app/puppeteer/${name}`;
+      const tmpFile = `/tmp/puppeteer/${name}`;
 
       console.log('tmp', tmpFile);
 
@@ -310,7 +310,7 @@ ${inject.body || ''}
         'p' in a ? a.p.includes('audio') : false,
       );
       if (audioAsset[0]) {
-        fs.rename(output, '/app/puppeteer/temp.mp4', () => {
+        fs.rename(output, '/tmp/puppeteer/temp.mp4', () => {
           console.log('renamed');
         });
         const addAudio = new Promise<void>((resolve, reject) => {
@@ -321,7 +321,7 @@ ${inject.body || ''}
             '-hide_banner',
             '-y',
             '-i',
-            '/app/puppeteer/temp.mp4',
+            '/tmp/puppeteer/temp.mp4',
             '-i',
             audioAsset[0].p,
             '-c:v',
