@@ -1,5 +1,5 @@
 import { Injectable, StreamableFile } from '@nestjs/common';
-import puppeteer from 'puppeteer-core';
+import puppeteer from 'puppeteer';
 import * as fs from 'fs';
 import { spawn } from 'child_process';
 
@@ -148,7 +148,6 @@ ${inject.body || ''}
     console.log('generato il body', (genTime - start) / 1000);
 
     const browser = await puppeteer.launch({
-      executablePath: '/usr/bin/google-chrome-stable',
       args: ['--no-sandbox'],
       ...puppeteerOptions,
     });
