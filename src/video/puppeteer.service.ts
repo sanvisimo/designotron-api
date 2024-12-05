@@ -217,7 +217,7 @@ ${inject.body || ''}
       let ffmpegStdin;
 
       const ffmpegP = new Promise<void>((resolve, reject) => {
-        const ffmpegArgs = ['-v', 'error', '-stats', '-hide_banner', '-y'];
+        const ffmpegArgs = ['-v', 'error', '-nostats', '-hide_banner', '-y'];
 
         let scale = `scale=${width}:-2`;
 
