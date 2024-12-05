@@ -35,6 +35,14 @@ export class PuppeteerService {
     const start = new Date().getTime();
     console.log('inizio');
 
+    const browser = puppeteer.launch({
+      args: ['--no-sandbox'],
+      ...puppeteerOptions,
+    });
+
+    const genBrowser = new Date().getTime();
+    console.log('genero il browser', (genBrowser - start) / 1000);
+
     let { width = undefined, height = undefined } = opts;
 
     const lottieData = animationData;
@@ -144,20 +152,6 @@ ${inject.body || ''}
 </body>
 </html>
 `;
-    const genTime = new Date().getTime();
-    console.log('generato il body', (genTime - start) / 1000);
-
-    const browser = await puppeteer.launch({
-      args: ['--no-sandbox'],
-      ...puppeteerOptions,
-    });
-
-    const genBrowser = new Date().getTime();
-    console.log(
-      'genero il browser',
-      (genBrowser - genTime) / 1000,
-      (genBrowser - start) / 1000,
-    );
 
     const page = await browser.newPage();
 
@@ -379,7 +373,8 @@ ${inject.body || ''}
       }
 
       const file = fs.createReadStream(output);
-
+      const end = new Date().getTime();
+      console.log('end', (end - start) / 1000);
       return new StreamableFile(file, {
         type: 'video/mp4',
         disposition: `attachment; filename="videoPupp.mp4"`,
