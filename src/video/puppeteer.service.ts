@@ -37,6 +37,7 @@ export class PuppeteerService {
 
     const browser = await puppeteer.launch({
       headless: 'shell',
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
       ...puppeteerOptions,
     });
 
