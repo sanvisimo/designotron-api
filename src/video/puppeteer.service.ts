@@ -32,6 +32,9 @@ export class PuppeteerService {
       frameNumber = 70,
     } = opts;
 
+    const start = new Date().getTime();
+    console.log('inizio');
+
     let { width = undefined, height = undefined } = opts;
 
     const lottieData = animationData;
@@ -141,23 +144,36 @@ ${inject.body || ''}
 </body>
 </html>
 `;
-    console.log('generato il body');
+    const genTime = new Date().getTime();
+    console.log('generato il body', (genTime - start) / 1000);
 
     const browser = await puppeteer.launch({
       executablePath: '/usr/bin/google-chrome-stable',
       args: ['--no-sandbox'],
       ...puppeteerOptions,
     });
+
+    const genBrowser = new Date().getTime();
+    console.log(
+      'genero il browser',
+      (genBrowser - genTime) / 1000,
+      (genBrowser - start) / 1000,
+    );
+
     const page = await browser.newPage();
-    console.log('apro il browser');
+
+    const openTime = new Date().getTime();
+    console.log('apro il browser', (openTime - start) / 1000);
 
     await page.setContent(html);
 
-    console.log('leggo');
+    const readTime = new Date().getTime();
+    console.log('leggo', (readTime - start) / 1000);
 
     await page.waitForSelector('.ready');
 
-    console.log('pronta');
+    const pageReadyTime = new Date().getTime();
+    console.log('pagina pronta', (pageReadyTime - start) / 1000);
 
     const duration = await page.evaluate(() => duration);
     const numFrames = await page.evaluate(() => numFrames);
@@ -167,7 +183,8 @@ ${inject.body || ''}
     const rootHandle = await pageFrame.$('#root');
 
     if (type === 'png') {
-      console.log('frame richiesto', frameNumber);
+      const frameTime = new Date().getTime();
+      console.log('frame richiesto', frameNumber, (frameTime - start) / 1000);
 
       await page.evaluate(
         (frame) => animation.goToAndStop(frame, true),
@@ -179,7 +196,7 @@ ${inject.body || ''}
 
       console.log('tmp', tmpFile);
 
-      const screenshot = await rootHandle.screenshot({
+      await rootHandle.screenshot({
         path: tmpFile,
         omitBackground: true,
         type: 'png',
@@ -192,6 +209,9 @@ ${inject.body || ''}
         await browser.close();
       }
       const file = fs.createReadStream(tmpFile);
+
+      const end = new Date().getTime();
+      console.log('end', (end - start) / 1000);
       return new StreamableFile(file, {
         type: 'image/png',
         disposition: `attachment; filename="${name}"`,
