@@ -36,7 +36,7 @@ export class PuppeteerService {
     console.log('inizio');
 
     const browser = await puppeteer.launch({
-      args: ['--no-sandbox'],
+      headless: 'shell',
       ...puppeteerOptions,
     });
 
