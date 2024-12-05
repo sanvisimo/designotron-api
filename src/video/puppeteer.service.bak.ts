@@ -1,16 +1,13 @@
 import { Injectable, StreamableFile } from '@nestjs/common';
 import puppeteer from 'puppeteer';
 import * as fs from 'fs';
-import ffmpeg from 'fluent-ffmpeg';
-import { join } from 'path';
-
-const basePath = join(process.cwd(), 'puppeteer');
+import { spawn } from 'child_process';
 
 @Injectable()
 export class PuppeteerService {
   async exportVideo(opts) {
     const {
-      output = join(basePath, 'tmp_video.mp4'),
+      output = '/tmp/puppeteer/videoPupp.mp4',
       type = 'png',
       animationData,
       path: animationPath = undefined,
@@ -31,14 +28,12 @@ export class PuppeteerService {
         quality: 80,
         fast: false,
       },
-      progress = (f: number, t: number) => {
-        console.log('create', f, '/', t);
-      },
+      progress = undefined,
       frameNumber = 70,
     } = opts;
 
     const start = new Date().getTime();
-    console.log('inizio', process.cwd());
+    console.log('inizio');
 
     const browser = await puppeteer.launch({
       headless: 'shell',
@@ -191,7 +186,7 @@ ${inject.body || ''}
       );
 
       const name = `test_${frameNumber}.png`;
-      const tmpFile = join(basePath, name);
+      const tmpFile = `/tmp/puppeteer/${name}`;
 
       console.log('tmp', tmpFile);
 
@@ -218,25 +213,104 @@ ${inject.body || ''}
         // length: 123,
       });
     } else {
-      const dir = join(basePath, 'video');
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir);
-      }
+      let ffmpeg;
+      let ffmpegStdin;
+
+      const ffmpegP = new Promise<void>((resolve, reject) => {
+        const ffmpegArgs = ['-v', 'error', '-nostats', '-hide_banner', '-y'];
+
+        let scale = `scale=${width}:-2`;
+
+        if (width % 2 !== 0) {
+          if (height % 2 === 0) {
+            scale = `scale=-2:${height}`;
+          } else {
+            scale = `scale=${width + 1}:-2`;
+          }
+        }
+
+        ffmpegArgs.push(
+          '-f',
+          'lavfi',
+          '-i',
+          `color=c=black:size=${width}x${720}`,
+          '-f',
+          'image2pipe',
+          '-c:v',
+          'png',
+          '-r',
+          `${fps}`,
+          '-i',
+          '-',
+          '-filter_complex',
+          `[0:v][1:v]overlay[o];[o]${scale}:flags=bicubic[out]`,
+          '-map',
+          '[out]',
+          '-c:v',
+          'libx264',
+          '-profile:v',
+          ffmpegOptions.profileVideo,
+          '-preset',
+          ffmpegOptions.preset,
+          '-crf',
+          ffmpegOptions.crf,
+          // '-movflags',
+          // 'faststart',
+          '-pix_fmt',
+          'yuv420p',
+          '-r',
+          `${fps}`,
+        );
+
+        ffmpegArgs.push('-frames:v', `${numFrames}`, '-an', output);
+
+        console.log(ffmpegArgs.join(' '));
+
+        ffmpeg = spawn(process.env.FFMPEG_PATH || 'ffmpeg', ffmpegArgs);
+        const { stdin, stdout, stderr } = ffmpeg;
+
+        if (!quiet) {
+          stdout.pipe(process.stdout);
+        }
+        stderr.pipe(process.stderr);
+
+        stdin.on('error', (err) => {
+          if (err.code !== 'EPIPE') {
+            return reject(err);
+          }
+        });
+
+        ffmpeg.on('exit', async (status) => {
+          if (status) {
+            return reject(new Error(`FFmpeg exited with status ${status}`));
+          } else {
+            return resolve();
+          }
+        });
+
+        ffmpegStdin = stdin;
+      });
 
       for (let frame = 0; frame < numFrames; ++frame) {
+        console.log('apro frame', frame);
         await page.evaluate(
           (frame) => animation.goToAndStop(frame, true),
           frame,
         );
 
-        await rootHandle.screenshot({
-          path: join(dir, `frame${('00' + frame).slice(-3)}.png`),
+        const screenshot = await rootHandle.screenshot({
           omitBackground: true,
           type: 'png',
         });
 
         if (progress) {
+          console.log('progress', frame, '/', numFrames);
           progress(frame, numFrames);
+        }
+
+        // single screenshot
+        if (ffmpegStdin.writable) {
+          ffmpegStdin.write(screenshot);
         }
       }
 
@@ -247,59 +321,60 @@ ${inject.body || ''}
         await browser.close();
       }
 
-      console.log('egu', output);
-      // const stream = fs.createWriteStream(output);
+      ffmpegStdin.end();
+      await ffmpegP;
 
-      const ehi = await new Promise<string>((resolve, reject) => {
-        const command = ffmpeg()
-          .addInput(`${dir}/frame%03d.png`)
-          .fps(fps)
-          // .size(`${width}x${height}`)
-          .frames(numFrames)
-          // .videoCodec('libx264')
-          // .addOutputOptions('-pix_fmts yuv420p')
-          .on('start', () => {
-            console.log('inizio la codifica');
-          })
-          .on('progress', function (info) {
-            console.log('progress ' + info.percent + '%');
-          })
-          .on('end', function () {
-            console.log('file has been converted succesfully');
-            fs.rmSync(dir, { recursive: true, force: true });
-            resolve('fatto!');
-          })
-          .on('error', function (err) {
-            console.log('an error happened: ' + err.message);
-            reject(err);
-          })
-          // .format('mp4')
-          .output(output);
+      const audioAsset = animationData.assets.filter((a) =>
+        'p' in a ? a.p.includes('audio') : false,
+      );
+      if (audioAsset[0]) {
+        fs.rename(output, '/tmp/puppeteer/temp.mp4', () => {
+          console.log('renamed');
+        });
+        const addAudio = new Promise<void>((resolve, reject) => {
+          const ffmpeg = spawn(process.env.FFMPEG_PATH || 'ffmpeg', [
+            '-v',
+            'error',
+            '-stats',
+            '-hide_banner',
+            '-y',
+            '-i',
+            '/tmp/puppeteer/temp.mp4',
+            '-i',
+            audioAsset[0].p,
+            '-c:v',
+            'copy',
+            '-map',
+            '0:v',
+            '-map',
+            '1:a',
+            output,
+          ]);
 
-        const audioAsset = animationData.assets.filter((a) =>
-          'p' in a ? a.p.includes('audio') : false,
-        );
+          const { stdout, stderr } = ffmpeg;
 
-        if (audioAsset[0]) {
-          command.addInput(audioAsset[0].p);
-        } else {
-          command.noAudio();
-        }
+          if (!quiet) {
+            stdout.pipe(process.stdout);
+          }
+          stderr.pipe(process.stderr);
 
-        // save to file
-        command.run();
-      });
-
-      console.log(ehi);
+          ffmpeg.on('exit', async (status) => {
+            if (status) {
+              return reject(new Error(`FFmpeg exited with status ${status}`));
+            } else {
+              return resolve();
+            }
+          });
+        });
+        await addAudio;
+      }
 
       const file = fs.createReadStream(output);
       const end = new Date().getTime();
       console.log('end', (end - start) / 1000);
       return new StreamableFile(file, {
         type: 'video/mp4',
-        disposition: 'attachment; filename="video.mp4"',
-        // If you want to define the Content-Length value to another value instead of file's length:
-        // length: 123,
+        disposition: `attachment; filename="videoPupp.mp4"`,
       });
     }
   }
